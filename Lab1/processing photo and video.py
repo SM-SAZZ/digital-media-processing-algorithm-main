@@ -40,7 +40,7 @@ def print_info(cap):
 def show_video():
 
     #захват видео
-    cap = cv2.VideoCapture(r'C:\Users\malak\OneDrive\Рабочий стол\digital-media-processing-algorithm-main\Lab1\kotik.MP4', cv2.CAP_ANY)
+    cap = cv2.VideoCapture(r'Lab1\kotik.MP4', cv2.CAP_ANY)
 
     print_info(cap)
 
@@ -92,7 +92,7 @@ def show_web_video():
 
 '''Задание 4 Записать видео из файла в другой файл.'''
 def save_video():
-    video = cv2.VideoCapture(r'C:\Users\malak\OneDrive\Рабочий стол\digital-media-processing-algorithm-main\Lab1\kotik.MP4', cv2.CAP_ANY)
+    video = cv2.VideoCapture(r'Lab1\kotik.MP4', cv2.CAP_ANY)
     ok, img = video.read()
     w = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
