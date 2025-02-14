@@ -34,7 +34,7 @@ def filtering():
 
     # создаем окно для отображения результата и бегунки
     cv2.namedWindow("setup",cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("setup", 300, 200)  # Изменяем размер окна управления
+    cv2.resizeWindow("setup", 300, 225)  # Изменяем размер окна управления
     cv2.createTrackbar("minH", "setup", 119, 179, nothing)
     cv2.createTrackbar("minS", "setup", 140, 255, nothing)
     cv2.createTrackbar("minV", "setup", 3, 255, nothing)
@@ -85,7 +85,7 @@ def morphological_transformation():
 
     # создаем окно для отображения результата и бегунки
     cv2.namedWindow("setup",cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("setup", 300, 200)  # Изменяем размер окна управления
+    cv2.resizeWindow("setup", 300, 225)  # Изменяем размер окна управления
     cv2.createTrackbar("minH", "setup", 119, 179, nothing)
     cv2.createTrackbar("minS", "setup", 140, 255, nothing)
     cv2.createTrackbar("minV", "setup", 3, 255, nothing)
@@ -137,7 +137,7 @@ def find_moments():
 
     # создаем окно для отображения результата и бегунки
     cv2.namedWindow("setup",cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("setup", 300, 200)  # Изменяем размер окна управления
+    cv2.resizeWindow("setup", 300, 225)  # Изменяем размер окна управления
     cv2.createTrackbar("minH", "setup", 119, 179, nothing)
     cv2.createTrackbar("minS", "setup", 140, 255, nothing)
     cv2.createTrackbar("minV", "setup", 3, 255, nothing)
@@ -194,7 +194,7 @@ def build_a_contour():
 
     # создаем окно для отображения результата и бегунки
     cv2.namedWindow("setup",cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("setup", 300, 200)  # Изменяем размер окна управления
+    cv2.resizeWindow("setup", 300, 225)  # Изменяем размер окна управления
     cv2.createTrackbar("minH", "setup", 119, 179, nothing)
     cv2.createTrackbar("minS", "setup", 140, 255, nothing)
     cv2.createTrackbar("minV", "setup", 3, 255, nothing)
