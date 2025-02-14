@@ -1,100 +1,164 @@
-import cv2
+import logging
+
 import numpy as np
+import cv2
 
-def GaussBlur(frame, k_size, deviation):
-    img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return cv2.GaussianBlur(img, (k_size, k_size), deviation)
 
-def motion_detection(kernel_size=5,
-                     deviation=5,
-                     delta_tresh=25,
-                     min_contour_area=500,
-                     output_file='motion_detected.mp4',
-                     input_file="./LR5/LR5_main_video.mov"):
-    # Захват видео
-    cap = cv2.VideoCapture(input_file)
-    if not cap.isOpened():
-        print("Не удалось открыть входной файл.")
-        return
+class MotionDetect:
+    _threshold: float = None
+    _contour_area: float = None
 
-    # Подготовка видеофайла для записи
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Кодек для записи
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    out = cv2.VideoWriter(output_file, fourcc, fps, (frame_width, frame_height), isColor=True)
+    _kernel_size: int = None
+    _deviation: float = None
 
-    # Чтение первого кадра
-    ret, frame = cap.read()
-    if not ret:
-        print("Не удалось прочитать первый кадр.")
-        return
+    def __init__(
+            self,
+            threshold: float = 15.0,
+            contour_area: float = 800.0,
+            kernel_size: int = 5,
+            deviation: float = 1,
+    ):
+        self._threshold = threshold
+        self._contour_area = contour_area
+        self._kernel_size = kernel_size
+        self._deviation = deviation
 
-    old_frame = GaussBlur(frame, kernel_size, deviation)
+    def __prepare_frame(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Подготовить фрейм к обработке,
+        привести к ЧБ,
+        применить фильтр Гаусса
+        :param frame: Кадр
+        :return: Обработанный кадр
+        """
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    while True:
-        ret, frame = cap.read()  # Чтение следующего кадра
-        if not ret:  # Проверка успешности чтения
-            break
+        return cv2.GaussianBlur(
+            gray_frame,
+            (self._kernel_size, self._kernel_size),
+            self._deviation
+        )
 
-        new_frame = GaussBlur(frame, kernel_size, deviation)
 
-        # Вычисление разницы между кадрами
-        frame_diff = cv2.absdiff(old_frame, new_frame)
 
-        # Применение порогового преобразования
-        _, thresh = cv2.threshold(frame_diff, delta_tresh, 255, cv2.THRESH_BINARY)
 
-        # Нахождение контуров
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    def process_video(
+            self,
+            input_path: str,
+            output_path: str
+    ):
+        video_ifstream = cv2.VideoCapture(input_path)
+        
+        ret, frame = video_ifstream.read()
 
-        motion_detected = False
-        for contour in contours:
-            if cv2.contourArea(contour) > min_contour_area:
-                motion_detected = True
+        if not ret:
+            logging.error('Не удалось открыть видеофайл.')
+            return
+
+        # Читаем первый кадр в чб, применяем размытие Гаусса
+        processed_frame = self.__prepare_frame(frame)
+
+        # Подготовка файла для записи нового видео
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        frame_width = int(video_ifstream.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(video_ifstream.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        video_ofstream = cv2.VideoWriter(output_path, fourcc, 24, (frame_width, frame_height))
+
+        logging.info(f"Видео будет сохранено по адресу: {output_path}")
+
+        while True:
+            previous_frame = processed_frame.copy()
+
+            ret, frame = video_ifstream.read()
+
+            if not ret:
                 break
 
-        # Если движение обнаружено, записываем обработанный кадр в выходной файл
-        if motion_detected:
-            out.write(frame)  # Записываем чёрно-белый кадр
+            # Преобразование текущего кадра в оттенки серого и размытие
+            processed_frame = self.__prepare_frame(frame)
 
-        # # Отображение текущего кадра
-        # cv2.namedWindow('Video', cv2.WINDOW_NORMAL)
-        # cv2.resizeWindow('Video', 640, 480)  # изменение размера окна
-        # cv2.imshow('Video', frame)
+            # Вычисление разницы между текущим и предыдущим кадром
+            frame_difference = cv2.absdiff(previous_frame, processed_frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            # Проводим операцию двоичного разделения:
+            # проводим бинаризацию изображения по пороговому значению (оставляем либо 255, либо 0)
+            _, thresholded_frame = cv2.threshold(frame_difference, self._threshold, 255, cv2.THRESH_BINARY)
 
-        old_frame = new_frame
+            # Поиск контуров объектов
+            contours, _ = cv2.findContours(thresholded_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Освобождение ресурсов
-    cap.release()
-    out.release()
-    cv2.destroyAllWindows()
+            for contour in contours:
 
+                contour_area = cv2.contourArea(contour)
 
-# kernel_size = 3
-# standard_deviation = 50
-# delta_tresh = 60
-# min_area = 20
-# motion_detection(kernel_size, standard_deviation, delta_tresh, min_area)
+                if contour_area < self._contour_area: # Ищем контур больше заданного значения
+                    continue
 
-# kernel_size = 11
-# standard_deviation = 70
-# delta_tresh = 60
-# min_area = 20
-# motion_detection(kernel_size, standard_deviation, delta_tresh, min_area)
+                # Запись исходного кадра, если найдены значимые изменения
+                video_ofstream.write(frame)
+                break
 
-# kernel_size = 3
-# standard_deviation = 50
-# delta_tresh = 20
-# min_area = 20
-# motion_detection(kernel_size, standard_deviation, delta_tresh, min_area)
+            # Прерывание по нажатию клавиши 'Esc'
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
 
-# как по мне, более оптимальное
-kernel_size = 3
-standard_deviation = 50
-delta_tresh = 60
-min_area = 10
-motion_detection(kernel_size, standard_deviation, delta_tresh, min_area)
+        video_ifstream.release()
+        video_ofstream.release()
+        logging.info("Видео успешно записано")
+        cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+
+    logging.basicConfig(level=logging.INFO)
+
+    configs = [
+        {
+            "threshold": 40,
+            "contour_area": 200,
+            "deviation": 2,
+        },
+        {
+            "threshold": 100,
+            "contour_area": 20,
+            "deviation": 2,
+        },
+        {
+            "threshold": 10,
+            "contour_area": 500,
+            "deviation": 1,
+        },
+        {
+            "threshold": 10,
+            "contour_area": 5000,
+            "deviation": 1,
+        },
+        {
+            "threshold": 10,
+            "contour_area": 3000,
+            "deviation": 1,
+        },
+        {
+            "threshold": 10,
+            "contour_area": 2000,
+            "deviation": 1,
+        },
+        {
+            "threshold": 5,
+            "contour_area": 2000,
+            "deviation": 1,
+        },
+        {
+            "threshold": 1,
+            "contour_area": 2000,
+            "deviation": 1,
+        },
+    ]
+
+    for i, config in enumerate(configs):
+        motionDetect = MotionDetect(
+            threshold=config["threshold"],
+            contour_area=config["contour_area"],
+            deviation=config["deviation"],
+        )
+        motionDetect.process_video('Lab5/files/kotik.mp4', f'Lab5/files/2_proc_{i}.mp4')
