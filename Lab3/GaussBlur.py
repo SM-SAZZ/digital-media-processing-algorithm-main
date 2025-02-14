@@ -99,6 +99,12 @@ def GaussBlur(img,k_size,deviation):
                     val += img[x + k, y + l] * kernel[k + (k_size // 2), l + (k_size // 2)]
             blured_img[x, y] = val
 
+    #cv2.namedWindow('Img', cv2.WINDOW_NORMAL)
+    #cv2.imshow('Img', img)
+    #cv2.namedWindow('Blured Img', cv2.WINDOW_NORMAL)
+    #cv2.imshow('Blured Img', blured_img)
+    #cv2.waitKey(0)
+
     return blured_img
 
 
@@ -107,11 +113,11 @@ def GaussBlur(img,k_size,deviation):
 свертки, сравнить результаты для ОДНОГО изображения.'''
 def GaussBlurCompareValues():
 
-    img = cv2.imread('ferrari.jpg', 0)
+    img = cv2.imread('Lab3/car.jpg', 0)
     height, width = img.shape[0],img.shape[1]
 
     kernel_sizes = [5,7]  # размер ядра
-    deviations = [0,30]  # отклонение
+    deviations = [1,3]  # отклонение
     for p in range(2):
         k_size,deviation  = kernel_sizes[p], deviations[p]
         kernel = np.zeros((k_size, k_size))
@@ -159,7 +165,7 @@ def GaussBlurCompareValues():
 
 '''Задание 5 Реализовать размытие Гаусса встроенным методом библиотеки OpenCV, сравнить результаты с Вашей реализацией.'''
 def CompareGaussBlur():
-    img = cv2.imread('ferrari.jpg', 0)
+    img = cv2.imread('Lab3/car.jpg', 0)
     blur_lib = cv2.GaussianBlur(img, (5, 5), 1)
     blur_mine = GaussBlur(img,5,1)
 
@@ -179,6 +185,6 @@ def CompareGaussBlur():
 
 #build_a_Gaussian_matrix() #1
 #Normalize_the_resulting_Gaussian_matrix() #2
-#GaussBlur() #3
-#GaussBlurCompareValues() #4
-CompareGaussBlur() #5
+#GaussBlur(cv2.imread('Lab3/car.jpg', 0),5,1) #3
+GaussBlurCompareValues() #4
+#CompareGaussBlur() #5
