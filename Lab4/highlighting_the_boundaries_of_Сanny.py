@@ -1,151 +1,339 @@
+import enum
+import math
+from typing import Callable
+
 import cv2
 import numpy as np
 
-
-'''Задание 1 Реализовать метод, который принимает в качестве строки
-полный адрес файла изображения, читает изображение, переводит его в черно
-белый цвет и выводит его на экран применяет размытие по Гауссу и выводит
-полученное изображение на экран.'''
-
-def GaussBlur(img_path,k_size, deviation):
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    return cv2.GaussianBlur(img, (k_size, k_size), deviation)
-
-'''Задание 2 Модифицировать построенный метод так, чтобы в результате
-вычислялось и выводилось на экран две матрицы – матрица значений длин и
-матрица значений углов градиентов всех пикселей изображения.'''
-
-def get_angle_number(x, y, tg):
-    if (x >= 0 and y <= 0 and tg < -2.414) or (x <= 0 and y <= 0 and tg > 2.414):
-        return 0
-    elif x >= 0 and y <= 0 and tg < -0.414:
-        return 1
-    elif (x >= 0 and y <= 0 and tg > -0.414) or (x >= 0 and y >= 0 and tg < 0.414):
-        return 2
-    elif x >= 0 and y >= 0 and tg < 2.414:
-        return 3
-    elif (x >= 0 and y >= 0 and tg > 2.414) or (x <= 0 and y >= 0 and tg < -2.414):
-        return 4
-    elif x <= 0 and y >= 0 and tg < -0.414:
-        return 5
-    elif (x <= 0 and y >= 0 and tg > -0.414) or (x <= 0 and y <= 0 and tg < 0.414):
-        return 6
-    elif x <= 0 and y <= 0 and tg < 2.414:
-        return 7
-
-def convolution(img, kernel):
-    #Операция свертки
-    height, width = img.shape[:2]
-    k_size = len(kernel)
-    processed_image = np.zeros_like(img, np.int32)
-
-    # применяем фильтр к пикселям картинки
-    for x in range(k_size // 2, height - k_size // 2):
-        for y in range(k_size // 2, width - k_size // 2):
-            # свертка
-            val = 0
-            for k in range(-(k_size // 2), k_size // 2 + 1):
-                for l in range(-(k_size // 2), k_size // 2 + 1):
-                    val += img[x + k, y + l] * kernel[k + (k_size // 2), l + (k_size // 2)]
-            processed_image[x, y] = val
-
-    return processed_image
-
-'''Задание 3 Модифицировать метод так, чтобы он выполнял подавление
-немаксимумов и выводил полученное изображение на экран. Рассмотреть
-изображение, сделать выводы.'''
-def suppression_of_non_maximums(img,Gx,Gy,tg,len_gradient):
-    edges = np.zeros_like(img)
-    for y in range(1, edges.shape[0] - 1):
-        for x in range(1, edges.shape[1] - 1):
-            angle = get_angle_number(Gx[y, x], Gy[y, x], tg[y, x])
-            if angle == 0 or angle == 4:
-                neighbor1 = [y - 1, x]
-                neighbor2 = [y + 1, x]
-            elif angle == 1 or angle == 5:
-                neighbor1 = [y - 1, x + 1]
-                neighbor2 = [y + 1, x - 1]
-            elif angle == 2 or angle == 6:
-                neighbor1 = [y, x + 1]
-                neighbor2 = [y, x - 1]
-            elif angle == 3 or angle == 7:
-                neighbor1 = [y + 1, x + 1]
-                neighbor2 = [y - 1, x - 1]
-            else:
-                raise Exception('Угол не определён')
-            if (len_gradient[y, x] >= len_gradient[neighbor1[0], neighbor1[1]] and
-                    len_gradient[y, x] > len_gradient[neighbor2[0], neighbor2[1]]):
-                edges[y, x] = 255
-
-    return edges
+from matrix_operators import MatrixOperator, SobelOperator
 
 
+class ImageShowKaniAlgorythmEnum(enum.Enum):
+    GRAYSCALE = 0
+    GAUSSIAN = 1
+    GRAD_LENGTH = 2
+    GRAD_ANGLE = 3
+    SUPPRESSED = 4
+    FILTERED = 5
 
-'''Задание 4 Модифицировать метод так, чтобы он выполнял двойную
-пороговую фильтрацию и выводил полученное изображение на экран.'''
-def double_threshold(img,len_gradient, max_grad_len, low_percent, high_percent):
-    print(max_grad_len)
-    l_percent = low_percent
-    h_percent = high_percent
+class KaniAlgorythm:
 
-    low_level = int(max_grad_len * l_percent)
-    high_level = int(max_grad_len * h_percent)
-    for y in range(img.shape[0]):
-        for x in range(img.shape[1]):
-            if img[y, x] > 0:
-                if len_gradient[y, x] < low_level:
-                    img[y, x] = 0
-                elif len_gradient[y, x] < high_level:
-                    keep = False
-                    for neighbor_y in (y - 1, y, y + 1):
-                        for neighbor_x in (x - 1, x, x + 1):
-                            if neighbor_y != y or neighbor_x != x:
-                                if (img[neighbor_y, neighbor_x] > 0 and
-                                        len_gradient[neighbor_y, neighbor_x] >= high_level):
-                                    keep = True
-                    if not keep:
-                        img[y, x] = 0
+    _image_size: (int, int)
+    _deviation: float
+    _kernel_size: int
+    _image_show_list: list[ImageShowKaniAlgorythmEnum]
+    _matrix_operator: MatrixOperator
+    _threshold_dividers: (int, int)
 
+    def __init__(
+            self,
+            image_size: (int, int) = (500, 500),
+            deviation: float = 1,
+            kernel_size: int = 5,
+            image_show_list: list[ImageShowKaniAlgorythmEnum] =None,
+            threshold_dividers: (int, int) = (5, 5)
+    ):
+        """
+        Инициализация класса
+        :param image_size: размер изображения
+        :param deviation: отклонение
+        :param kernel_size: размерность ядра
+        :param image_size: размер изображения
+        :param image_show_list: настройка отображения
+        """
+        if image_show_list is None:
+            self._image_show_list = [
+                ImageShowKaniAlgorythmEnum.GRAYSCALE,
+                ImageShowKaniAlgorythmEnum.GAUSSIAN,
+            ]
+        else:
+            self._image_show_list = image_show_list
+        self._image_size = image_size
+        self._deviation = deviation
+        self._kernel_size = kernel_size
+        self._matrix_operator = SobelOperator()
+        self._threshold_dividers = threshold_dividers
 
-    return img
+    def __preprocess_image(self, path_to_image: str) -> np.ndarray:
+        """
+        Провести предобработку изображения, считать из файла, привести к оттенкам серого, изменить размер
+        :param path_to_image:
+        :return:
+        """
+        img = cv2.imread(path_to_image, cv2.IMREAD_GRAYSCALE)
+        img = cv2.resize(img, self._image_size)
 
-def Canny_method(kernel_size=5,deviation=0,low_percent=0.02, high_percent=0.4,img_path='ferrari.jpg'):
-    blrd_img = GaussBlur(img_path, kernel_size, deviation)
-    sobelX = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
-    sobelY = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
-    #Применение свертки к размытому изображению
-    Gx,Gy = convolution(blrd_img, sobelX), convolution(blrd_img, sobelY)
+        if ImageShowKaniAlgorythmEnum.GRAYSCALE in self._image_show_list:
+            cv2.imshow("GrayScale", img)
 
+        img = cv2.GaussianBlur(img, (self._kernel_size, self._kernel_size), sigmaX=self._deviation, sigmaY=self._deviation)
 
-    #Вычисление градиентов и угльов
-    len_gradient = np.sqrt(np.add(np.square(Gx), np.square(Gy)))
-    max_grad_len = len_gradient.max()
-    tg = np.divide(Gy, Gx)
-    tg = np.nan_to_num(tg)
-    cv2.imshow('gradients', (len_gradient / max_grad_len * 255).astype(np.uint8))
+        if ImageShowKaniAlgorythmEnum.GAUSSIAN in self._image_show_list:
+            cv2.imshow("Gaussian", img)
 
-    # Подавление немаксимумов
-    img_border = suppression_of_non_maximums(blrd_img,Gx,Gy,tg,len_gradient)
-    cv2.imshow('img border no filter ', img_border)
+        return img
 
-    # Применение двойной пороговой фильтрации
-    thresholded_img = double_threshold(img_border,len_gradient,max_grad_len,low_percent,high_percent)
-    cv2.imshow('Filtered Image', thresholded_img)
-    cv2.waitKey(0)
+    def __get_gradients(
+            self,
+            img: np.ndarray,
+            g_x_matrix_operator: Callable[[np.ndarray, int, int], int],
+            g_y_matrix_operator: Callable[[np.ndarray, int, int], int]
+    ) -> list[list[tuple]]:
+        """
+        Получить матрицу градиентов для пикселей изображения
+        :param img:
+        :param g_x_matrix_operator:
+        :param g_y_matrix_operator:
+        :return:
+        """
+        gradients = []
+        for x in range(1, img.shape[0] - 1):
+            gradient_row = []
+            for y in range(1, img.shape[1] - 1):
+                Gx = g_x_matrix_operator(img, x, y)
+                Gy = g_y_matrix_operator(img, x, y)
+                gradient_row.append((Gx, Gy))
+            gradients.append(gradient_row)
+        return gradients
 
+    def __get_grad_length(self, img: np.ndarray, grads: list[list[tuple]]) -> np.ndarray:
+        """
+        Получить матрицу длин градиентов
+        :param img:
+        :param grads:
+        :return:
+        """
+        grads_length = np.zeros((img.shape[0], img.shape[1]))
+        grad_x_coord = 0
+        for x in range(1, img.shape[0] - 1):
+            grad_y_coord = 0
+            for y in range(1, img.shape[1] - 1):
+                Gx, Gy = grads[grad_x_coord][grad_y_coord]
+                grads_length[x, y] = math.sqrt(Gx ** 2 + Gy ** 2)
+                grad_y_coord = grad_y_coord + 1
+            grad_x_coord = grad_x_coord + 1
+        return grads_length
 
-'''Задание 5 (самостоятельно). Провести опыты для различных параметров
-размытия и различных пороговых значений градиента, определить наилучшие
-параметры для Вашего изображения. Показать преподавателю значения
-параметров и результат работы на следующем занятии.'''
-#Сравнение отклонения
-Canny_method(5,0.005,0.02,0.4)
-Canny_method(5,5,0.02,0.4)
+    def __get_corner_by_grad(self, grad: tuple) -> int:
+        """
+        Получить округлённое значение угла по его градиенту
+        :param grad:
+        :return:
+        """
+        Gx, Gy = grad
+        tang = Gy / Gx if Gx != 0 else 999
+        if Gx > 0 > Gy and tang < -2.414 or Gx < 0 and Gy < 0 and tang > 2.414:
+            return 0
+        elif Gx > 0 > Gy and tang < -0.414:
+            return 1
+        elif Gx > 0 > Gy and tang > -0.414 or Gx > 0 and Gy > 0 and tang < 0.414:
+            return 2
+        elif Gx > 0 and Gy > 0 and tang < 2.414:
+            return 3
+        elif Gx > 0 and Gy > 0 and tang > 2.414 or Gx < 0 < Gy and tang < -2.414:
+            return 4
+        elif Gx < 0 < Gy and tang < -0.414:
+            return 5
+        elif Gx < 0 < Gy and tang > -0.414 or Gx < 0 and Gy < 0 and tang < 0.414:
+            return 6
+        elif Gx < 0 and Gy < 0 and tang < 2.414:
+            return 7
+        if Gx == 0:
+            if Gy > 0:
+                return 4
+            elif Gy <= 0:
+                return 0
+        else:
+            if Gy > 0:
+                return 2
+            elif Gy <= 0:
+                return 6
 
-#Сравнение размера ядра
-Canny_method(5,0.005,0.02,0.4)
-Canny_method(11,0.02,0.4)
+    def __get_corners(self, img: np.ndarray, grads: list[list[tuple]]) -> np.ndarray:
+        """
+        Получить матрицу углов градиентов
+        :param img:
+        :param grads:
+        :return:
+        """
+        corners = np.zeros((img.shape[0], img.shape[1]))
+        grads_len = len(grads[0])
+        corner_x = 1
+        for i in range(len(grads)):
+            corner_y = 1
+            for j in range(grads_len):
+                corners[corner_x, corner_y] = self.__get_corner_by_grad(grads[i][j])
+                corner_y += 1
+            corner_x += 1
+        return corners
 
-#Сравнение двойной фильтрации
-Canny_method(5,0.005,0.02,0.4)
-Canny_method(5,0.005,0.1,0.6)
+    def __not_max_suppress(self, grads_len: np.ndarray, corners: np.ndarray) -> np.ndarray:
+        """
+        Подавление немаксимумов
+        :param grads_len: Матрица длин градиентов
+        :param corners: Матрица углов градиентов
+        :return:
+        """
+        height, width = grads_len.shape
+        bordered_image = np.zeros_like(grads_len)
+
+        for y in range(1, height - 1):
+            for x in range(1, width - 1):
+                angle = int(corners[x][y])
+                first_neigh, second_neigh = self.__get_grad_neighbors_by_angle(grads_len, x, y, angle)
+
+                if grads_len[x][y] > first_neigh and grads_len[x][y] > second_neigh:
+                    bordered_image[x][y] = 255
+                else:
+                    bordered_image[x][y] = 0
+
+        return bordered_image
+
+    def __get_grad_neighbors_by_angle(self, grads_len: np.ndarray, x: int, y: int, angle: int) -> tuple:
+        """
+        Получить длины градиентов двух соседних пикселей
+        :param grads_len:
+        :param x:
+        :param y:
+        :param angle:
+        :return:
+        """
+        if angle == 0 or angle == 4:
+            return grads_len[x + 1][y], grads_len[x - 1][y]
+        elif angle == 1 or angle == 5:
+            return grads_len[x - 1][y + 1], grads_len[x + 1][y - 1]
+        elif angle == 2 or angle == 6:
+            return grads_len[x][y + 1], grads_len[x][y - 1]
+        elif angle == 3 or angle == 7:
+            return grads_len[x + 1][y + 1], grads_len[x - 1][y - 1]
+        else:
+            return -9999999, -9999999
+
+    def __double_threshold_filter(
+            self,
+            img: np.ndarray,
+            img_with_borders: np.ndarray,
+            grads_len: np.ndarray,
+    ):
+        """
+        Выполнить двойную пороговую фильтрацию
+        :param img: Изображение
+        :param img_with_borders: Изображение с уже отмеченными границами
+        :param grads_len: Матрица длин градиентов
+        :return:
+        """
+        max_gradient = np.max(grads_len)
+        print(max_gradient)
+        lower_bound = max_gradient / self._threshold_dividers[0]
+        upper_bound = max_gradient / self._threshold_dividers[1]
+        print(f'Нижняя граница {lower_bound}, Верхняя: {upper_bound}')
+        filtered_img = np.zeros(img.shape)
+
+        for i in range(0, img.shape[0]):
+            for j in range(0, img.shape[1]):
+                gradient = grads_len[i][j]
+                if img_with_borders[i][j] == 255:
+                    # Если выше верхней границы, то точно входит
+                    if gradient > upper_bound:
+                        filtered_img[i][j] = 255
+                    elif lower_bound <= gradient <= upper_bound:  # Если между двумя границами - нужно проверить соседей
+                        has_neigh_border = False
+                        for k in range(-1, 2):
+                            for l in range(-1, 2):
+                                if (
+                                        img_with_borders[i + k][j + l] == 255
+                                        and img_with_borders[i + k][j + l] >= upper_bound
+                                ):
+                                    has_neigh_border = True
+                        if has_neigh_border:
+                            img_with_borders[i][j] = 255
+        return filtered_img
+
+    def process_image(
+            self,
+            image_path: str
+    ):
+        """
+        Провести обработку алгоритмом Канни
+        :param image_path:
+        :return:
+        """
+        img = self.__preprocess_image(image_path)
+
+        gradients = self.__get_gradients(img, self._matrix_operator.x_matrix, self._matrix_operator.y_matrix)
+
+        grads_lengths = self.__get_grad_length(img, grads=gradients)
+
+        if ImageShowKaniAlgorythmEnum.GRAD_LENGTH in self._image_show_list:
+            cv2.imshow("Grad lengths", cv2.resize(grads_lengths, self._image_size))
+            print('Матрица значений длин градиентов:')
+            print(grads_lengths)
+
+        corners = self.__get_corners(img, gradients)
+
+        if ImageShowKaniAlgorythmEnum.GRAD_ANGLE in self._image_show_list:
+            cv2.imshow("Grad angles", cv2.resize(corners, self._image_size))
+            print('Матрица значений углов градиентов:')
+            print(corners)
+
+        suppressed_img = self.__not_max_suppress(grads_lengths, corners)
+
+        if ImageShowKaniAlgorythmEnum.SUPPRESSED in self._image_show_list:
+            cv2.imshow("Suppressed", suppressed_img)
+
+        result_img = self.__double_threshold_filter(
+            img,
+            suppressed_img,
+            grads_lengths
+        )
+
+        if ImageShowKaniAlgorythmEnum.FILTERED in self._image_show_list:
+            cv2.imshow("Filtered", result_img)
+
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def process_image_with_return(
+            self,
+            image_path: str
+    ):
+        """
+        Провести обработку алгоритмом Канни
+        :param image_path:
+        :return:
+        """
+        img = self.__preprocess_image(image_path)
+
+        gradients = self.__get_gradients(img, self._matrix_operator.x_matrix, self._matrix_operator.y_matrix)
+
+        grads_lengths = self.__get_grad_length(img, grads=gradients)
+
+        if ImageShowKaniAlgorythmEnum.GRAD_LENGTH in self._image_show_list:
+            cv2.imshow("Grad lengths", cv2.resize(grads_lengths, self._image_size))
+            print('Матрица значений длин градиентов:')
+            print(grads_lengths)
+
+        corners = self.__get_corners(img, gradients)
+
+        if ImageShowKaniAlgorythmEnum.GRAD_ANGLE in self._image_show_list:
+            cv2.imshow("Grad angles", cv2.resize(corners, self._image_size))
+            print('Матрица значений углов градиентов:')
+            print(corners)
+
+        suppressed_img = self.__not_max_suppress(grads_lengths, corners)
+
+        if ImageShowKaniAlgorythmEnum.SUPPRESSED in self._image_show_list:
+            cv2.imshow("Suppressed", suppressed_img)
+
+        max_gradient = np.max(grads_lengths)
+        print(max_gradient)
+        lower_bound = max_gradient / self._threshold_dividers[0]
+        upper_bound = max_gradient / self._threshold_dividers[1]
+
+        result_img = self.__double_threshold_filter(
+            img,
+            suppressed_img,
+            grads_lengths
+        )
+
+        return result_img, (lower_bound, upper_bound)
