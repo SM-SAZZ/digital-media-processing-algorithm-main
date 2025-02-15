@@ -268,7 +268,7 @@ def stream_video_from_phone():
             print("Ошибка: Не удалось прочитать кадр")
             break
 
-        cv2.namedWindow('PhoneStream', cv2.WINDOW_NORMAL)
+        cv2.namedWindow('PhoneStream', cv2.WINDOW_AUTOSIZE)
         # Отображение кадра
         cv2.imshow('PhoneStream', img)
 

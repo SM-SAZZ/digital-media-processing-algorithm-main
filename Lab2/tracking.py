@@ -202,8 +202,6 @@ def build_a_contour():
     cv2.createTrackbar("maxS", "setup", 255, 255, nothing)
     cv2.createTrackbar("maxV", "setup", 255, 255, nothing)
 
-
-
     while True:
         ret, frame = cap.read()  # Чтение текущего кадра
         if not ret:  # Проверка на успешное чтение кадра
@@ -226,7 +224,7 @@ def build_a_contour():
 
         # применяем фильтр, делаем бинаризацию
         mask = cv2.inRange(hsv_frame, min_p, max_p)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((50, 50)))  # erosion и dilation : удаляем маленькие белые 7объекты
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((50, 50)))  # erosion и dilation : удаляем маленькие белые объекты
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((50, 50)))  # dilation и erosion : удаляем маленькие черные пробелы
 
         hsv_frame_filtered = cv2.bitwise_and(frame, frame, mask=mask)  # применение фильтра
@@ -245,6 +243,19 @@ def build_a_contour():
             x, y, w, h = cv2.boundingRect(mask)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 0), 3)
 
+            radius = 50
+            angle = 72
+            points = []
+            for i in range(5):
+                theta = np.deg2rad(i * angle - 90)  # Adjust angle to start from the top
+                x = int(posX + radius * np.cos(theta))
+                y = int(posY + radius * np.sin(theta))
+                points.append((x, y))
+            for i in range(5):
+                cv2.line(frame, points[i], points[(i + 2) % 5], (0, 255, 0), 2)
+
+            cv2.circle(frame, (posX, posY), radius, (0, 255, 0), 2)
+
         cv2.imshow('Filtered Web Video', hsv_frame_filtered)
         cv2.imshow('Web Video', frame)
 
@@ -255,10 +266,10 @@ def build_a_contour():
 
 
 
-web_video_to_hsv() #1
-filtering() #2
-morphological_transformation() #3
-find_moments() #4
+#web_video_to_hsv() #1
+#filtering() #2
+#morphological_transformation() #3
+#find_moments() #4
 build_a_contour() #5
 
 
