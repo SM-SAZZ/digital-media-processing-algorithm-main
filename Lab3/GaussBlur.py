@@ -185,6 +185,6 @@ def CompareGaussBlur():
 
 #build_a_Gaussian_matrix() #1
 #Normalize_the_resulting_Gaussian_matrix() #2
-#GaussBlur(cv2.imread('Lab3/car.jpg', 0),5,1) #3
-GaussBlurCompareValues() #4
+GaussBlur(cv2.imread('Lab3/car.jpg', 0),5,1) #3
+#GaussBlurCompareValues() #4
 #CompareGaussBlur() #5

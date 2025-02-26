@@ -26,7 +26,7 @@ for item in threshold_images:
         threshold_dividers=item,
     )
 
-    image, bounds = kaniAlgo.process_image_with_return('files/1.jpg')
+    image, bounds = kaniAlgo.process_image_with_return('Lab4/files/1.jpg')
 
     cv2.imshow(f"{round(bounds[0], 2)}-{round(bounds[1], 2)}", image)
 

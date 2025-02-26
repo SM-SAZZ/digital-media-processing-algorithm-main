@@ -11,4 +11,4 @@ kaniAlgo = KaniAlgorythm(
     threshold_dividers=(15, 8)
 )
 
-kaniAlgo.process_image('files/1.jpg')
+kaniAlgo.process_image('Lab4/files/1.jpg')
