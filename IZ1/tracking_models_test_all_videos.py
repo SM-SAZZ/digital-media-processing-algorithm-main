@@ -20,8 +20,7 @@ if __name__ == '__main__':
         height = video.get(cv2.CAP_PROP_FRAME_HEIGHT)
         ret, frame = video.read()
         bbox = cv2.selectROI(frame, False)
-        for tracker_type in range(2, 3):
-            print(tracker_type)
+        for tracker_type in range(3):
             if tracker_type not in [0, 1, 2]:
                 print("Invalid tracker type")
                 sys.exit()
